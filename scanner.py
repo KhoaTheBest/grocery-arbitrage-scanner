@@ -38,24 +38,70 @@ MOCK_DEALS = [
         "weight_kg": 0.52,
         "category": "Beauty",
         "bsr": 450,
-        "link": "https://www.amazon.co.uk/dp/B0068YGPX0"
+        "supermarket_url": "https://www.trolley.co.uk/product/cerave-moisturising-cream/XDL877",
+        "amazon_url": "https://www.amazon.co.uk/s?k=CeraVe+Moisturising+Cream+454g"
     },
     {
-        "brand": "Prestone",
-        "title": "Antifreeze Coolant Ready To Use 4 Litres",
-        "price": 12.00,
+        "brand": "Aptamil",
+        "title": "First Infant Milk Powder 800g",
         "supermarket": "Asda",
+        "supermarket_price": 14.50,
         "amazon_price": 24.99,
-        "BSR": 1500,
-        "category": "Automotive",
-        "link": "https://www.amazon.co.uk/dp/B009V3KXJP"
+        "weight_kg": 0.95,
+        "category": "Baby Product",
+        "bsr": 1200,
+        "supermarket_url": "https://www.trolley.co.uk/product/aptamil-1-first-infant-milk-powder/HDK922",
+        "amazon_url": "https://www.amazon.co.uk/s?k=Aptamil+First+Infant+Milk+Powder+800g"
+    },
+    {
+        "brand": "L'Or",
+        "title": "Espresso Onyx Coffee Pods x40",
+        "supermarket": "Tesco",
+        "supermarket_price": 8.00,
+        "amazon_price": 17.50,
+        "weight_kg": 0.25,
+        "category": "Grocery",
+        "bsr": 850,
+        "supermarket_url": "https://www.trolley.co.uk/product/lor-espresso-onyx-coffee-pods/FDK284",
+        "amazon_url": "https://www.amazon.co.uk/s?k=L%27Or+Espresso+Onyx+Coffee+Pods+x40"
+    },
+    {
+        "brand": "Vitabiotics",
+        "title": "Pregnacare Max 84 Tablets",
+        "supermarket": "Morrisons",
+        "supermarket_price": 12.00,
+        "amazon_price": 22.99,
+        "weight_kg": 0.15,
+        "category": "Health & Personal Care",
+        "bsr": 620,
+        "supermarket_url": "https://www.trolley.co.uk/product/vitabiotics-pregnacare-max/CDK112",
+        "amazon_url": "https://www.amazon.co.uk/s?k=Vitabiotics+Pregnacare+Max+84+Tablets"
+    },
+    {
+        "brand": "Nivea",
+        "title": "Q10 Anti-Wrinkle Day Cream 50ml",
+        "supermarket": "Asda",
+        "supermarket_price": 5.00,
+        "amazon_price": 11.99,
+        "weight_kg": 0.12,
+        "category": "Beauty",
+        "bsr": 1500,
+        "supermarket_url": "https://www.trolley.co.uk/product/nivea-q10-anti-wrinkle-day-cream/ADK132",
+        "amazon_url": "https://www.amazon.co.uk/s?k=Nivea+Q10+Anti-Wrinkle+Day+Cream+50ml"
+    },
+    {
+        "brand": "Olay",
+        "title": "Regenerist 3 Point Anti-Ageing Cream 50ml",
+        "supermarket": "Tesco",
+        "supermarket_price": 15.00,
+        "amazon_price": 31.49,
+        "weight_kg": 0.14,
+        "category": "Beauty",
+        "bsr": 250,
+        "supermarket_url": "https://www.trolley.co.uk/product/olay-regenerist-3-point-anti-ageing-cream/JDK832",
+        "amazon_url": "https://www.amazon.co.uk/s?k=Olay+Regenerist+3+Point+Anti-Ageing+Cream+50ml"
     }
 ]
-
-def get_clean_title(title):
-    # Clean HTML tags and remove extra whitespace
-    title_clean = re.sub('<[^<]+?>', '', title)
-    return " ".join(title_clean.split())
 
 def get_bsr_health(bsr, category):
     """
@@ -159,19 +205,26 @@ def scrape_trolley_deals(queries):
                         full_title = f"{title_text} ({size_text})" if size_text else title_text
                         price_text = price_div.get_text().strip()
                         
-                        # Clean price float (e.g. "£15.04 £2.68 per 100ml" -> 15.04)
+                        # Clean price float (e.g. "£15.04" -> 15.04)
                         price_match = re.search(r'£\d+\.\d{2}', price_text)
                         price_val = 0.0
                         if price_match:
                             price_val = float(price_match.group(0).replace('£', ''))
                         else:
-                            # fallback: extract digits
                             price_val_str = re.sub(r'[^\d.]', '', price_text.split()[0])
                             if price_val_str:
                                 price_val = float(price_val_str)
                         
                         if price_val <= 0:
                             continue
+
+                        # Extract supermarket link
+                        a_tag = div.find('a', href=True)
+                        trolley_href = a_tag['href'] if a_tag else ""
+                        supermarket_url = f"https://www.trolley.co.uk{trolley_href}" if trolley_href else f"https://www.trolley.co.uk/search/?q={urllib.parse.quote(full_title)}"
+
+                        # Build Amazon search link as reference
+                        amazon_url = f"https://www.amazon.co.uk/s?k={urllib.parse.quote(brand_text + ' ' + title_text)}"
 
                         # Extract stores if possible, fallback to standard "UK Supermarket"
                         matched_store = "Sainsbury's"  # Default fallback
@@ -219,6 +272,8 @@ def scrape_trolley_deals(queries):
                             "weight_kg": weight_kg,
                             "category": category,
                             "bsr": simulated_bsr,
+                            "supermarket_url": supermarket_url,
+                            "amazon_url": amazon_url,
                             "is_gated": False
                         })
         except Exception as e:
@@ -246,75 +301,7 @@ def run_scanner():
     
     if args.mock:
         print(f"[{COLOR_GREEN}✓{COLOR_END}] Running in offline SHOWCASE mode utilizing standard pre-scanned deal sheets...")
-        # Populate full mock details
-        deals_source = [
-            {
-                "brand": "CeraVe",
-                "title": "Moisturising Cream 454g",
-                "supermarket": "Sainsbury's",
-                "supermarket_price": 10.50,
-                "amazon_price": 19.99,
-                "weight_kg": 0.52,
-                "category": "Beauty",
-                "bsr": 450,
-                "is_gated": False
-            },
-            {
-                "brand": "Aptamil",
-                "title": "First Infant Milk Powder 800g",
-                "supermarket": "Asda",
-                "supermarket_price": 14.50,
-                "amazon_price": 24.99,
-                "weight_kg": 0.95,
-                "category": "Baby Product",
-                "bsr": 1200,
-                "is_gated": False
-            },
-            {
-                "brand": "L'Or",
-                "title": "Espresso Onyx Coffee Pods x40",
-                "supermarket": "Tesco",
-                "supermarket_price": 8.00,
-                "amazon_price": 17.50,
-                "weight_kg": 0.25,
-                "category": "Grocery",
-                "bsr": 850,
-                "is_gated": False
-            },
-            {
-                "brand": "Vitabiotics",
-                "title": "Pregnacare Max 84 Tablets",
-                "supermarket": "Morrisons",
-                "supermarket_price": 12.00,
-                "amazon_price": 22.99,
-                "weight_kg": 0.15,
-                "category": "Health & Personal Care",
-                "bsr": 620,
-                "is_gated": False
-            },
-            {
-                "brand": "Nivea",
-                "title": "Q10 Anti-Wrinkle Day Cream 50ml",
-                "supermarket": "Asda",
-                "supermarket_price": 5.00,
-                "amazon_price": 11.99,
-                "weight_kg": 0.12,
-                "category": "Beauty",
-                "bsr": 1500,
-                "is_gated": False
-            },
-            {
-                "brand": "Olay",
-                "title": "Regenerist 3 Point Anti-Ageing Cream 50ml",
-                "supermarket": "Tesco",
-                "supermarket_price": 15.00,
-                "amazon_price": 31.49,
-                "weight_kg": 0.14,
-                "category": "Beauty",
-                "bsr": 250,
-                "is_gated": False
-            }
-        ]
+        deals_source = MOCK_DEALS
     else:
         search_terms = ["CeraVe", "L'Or Coffee", "Vitabiotics", "Nivea Cream"]
         if args.search:
@@ -328,30 +315,7 @@ def run_scanner():
             deals_source = scraped
         else:
             print(f"[{COLOR_YELLOW}⚠️{COLOR_END}] Live portals rate-limited/empty. Bypassing and auto-falling back to local pre-scanned arbitrage list...")
-            deals_source = [
-                {
-                    "brand": "CeraVe",
-                    "title": "Moisturising Cream 454g",
-                    "supermarket": "Sainsbury's",
-                    "supermarket_price": 10.50,
-                    "amazon_price": 19.99,
-                    "weight_kg": 0.52,
-                    "category": "Beauty",
-                    "bsr": 450,
-                    "is_gated": False
-                },
-                {
-                    "brand": "Aptamil",
-                    "title": "First Infant Milk Powder 800g",
-                    "supermarket": "Asda",
-                    "supermarket_price": 14.50,
-                    "amazon_price": 24.99,
-                    "weight_kg": 0.95,
-                    "category": "Baby Product",
-                    "bsr": 1200,
-                    "is_gated": False
-                }
-            ]
+            deals_source = MOCK_DEALS[:2]
 
     print("\n" + COLOR_BOLD + "==================== ARBITRAGE SCAN REPORT ====================" + COLOR_END)
     
@@ -379,6 +343,8 @@ def run_scanner():
         print(f"  💵 Amazon FBA Fees: £{metrics['total_fees']:.2f} (Referral: £{metrics['referral_fee']:.2f}, Shipping: £{metrics['fulfillment_fee']:.2f})")
         print(f"  📈 Profit Metrics: {color}Net Profit: £{metrics['profit']:.2f} | ROI: {metrics['roi']:.1f}% | Margin: {metrics['margin']:.1f}%{COLOR_END}")
         print(f"  📊 BSR Rank: #{deal['bsr']} | BSR Health: {COLOR_BOLD}{bsr_health}{COLOR_END} ({bsr_desc})")
+        print(f"  🔗 Supermarket Link: {deal['supermarket_url']}")
+        print(f"  🔗 Amazon UK Search: {deal['amazon_url']}")
         print("  -------------------------------------------------------------")
         matched_count += 1
 
