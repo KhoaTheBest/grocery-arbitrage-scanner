@@ -38,75 +38,24 @@ MOCK_DEALS = [
         "weight_kg": 0.52,
         "category": "Beauty",
         "bsr": 450,
-        "is_gated": False
+        "link": "https://www.amazon.co.uk/dp/B0068YGPX0"
     },
     {
-        "brand": "Aptamil",
-        "title": "First Infant Milk Powder 800g",
+        "brand": "Prestone",
+        "title": "Antifreeze Coolant Ready To Use 4 Litres",
+        "price": 12.00,
         "supermarket": "Asda",
-        "supermarket_price": 14.50,
         "amazon_price": 24.99,
-        "weight_kg": 0.95,
-        "category": "Baby Product",
-        "bsr": 1200,
-        "is_gated": False
-    },
-    {
-        "brand": "L'Or",
-        "title": "Espresso Onyx Coffee Pods x40",
-        "supermarket": "Tesco",
-        "supermarket_price": 8.00,
-        "amazon_price": 17.50,
-        "weight_kg": 0.25,
-        "category": "Grocery",
-        "bsr": 850,
-        "is_gated": False
-    },
-    {
-        "brand": "Vitabiotics",
-        "title": "Pregnacare Max 84 Tablets",
-        "supermarket": "Morrisons",
-        "supermarket_price": 12.00,
-        "amazon_price": 22.99,
-        "weight_kg": 0.15,
-        "category": "Health & Personal Care",
-        "bsr": 620,
-        "is_gated": False
-    },
-    {
-        "brand": "Nivea",
-        "title": "Q10 Anti-Wrinkle Day Cream 50ml",
-        "supermarket": "Asda",
-        "supermarket_price": 5.00,
-        "amazon_price": 11.99,
-        "weight_kg": 0.12,
-        "category": "Beauty",
-        "bsr": 1500,
-        "is_gated": False
-    },
-    {
-        "brand": "Yorkshire Gold",
-        "title": "Luxury Tea Bags Pack of 160",
-        "supermarket": "Sainsbury's",
-        "supermarket_price": 4.50,
-        "amazon_price": 9.99,
-        "weight_kg": 0.55,
-        "category": "Grocery",
-        "bsr": 3100,
-        "is_gated": False
-    },
-    {
-        "brand": "Olay",
-        "title": "Regenerist 3 Point Anti-Ageing Cream 50ml",
-        "supermarket": "Tesco",
-        "supermarket_price": 15.00,
-        "amazon_price": 31.49,
-        "weight_kg": 0.14,
-        "category": "Beauty",
-        "bsr": 250,
-        "is_gated": False
+        "BSR": 1500,
+        "category": "Automotive",
+        "link": "https://www.amazon.co.uk/dp/B009V3KXJP"
     }
 ]
+
+def get_clean_title(title):
+    # Clean HTML tags and remove extra whitespace
+    title_clean = re.sub('<[^<]+?>', '', title)
+    return " ".join(title_clean.split())
 
 def get_bsr_health(bsr, category):
     """
@@ -194,33 +143,50 @@ def scrape_trolley_deals(queries):
                 html = response.read().decode('utf-8', errors='ignore')
                 soup = BeautifulSoup(html, 'html.parser')
                 
-                # In Trolley.co.uk, products are often listed inside 'div' with class 'product'
-                product_divs = soup.find_all('div', class_='product')
-                for div in product_divs[:3]:  # Grab top 3 matches per query
-                    title_div = div.find('div', class_='title')
-                    price_div = div.find('div', class_='price')
-                    brand_div = div.find('div', class_='brand')
+                # In modern Trolley.co.uk, products are listed inside 'div' with class 'product-item'
+                product_items = soup.find_all('div', class_='product-item')
+                for div in product_items[:5]:  # Grab top 5 matches per query
+                    brand_div = div.find('div', class_='_brand')
+                    title_div = div.find('div', class_='_desc')
+                    size_div = div.find('div', class_='_size')
+                    price_div = div.find('div', class_='_price')
                     
                     if title_div and price_div:
-                        title_text = title_div.get_text().strip()
-                        price_text = price_div.get_text().strip()
                         brand_text = brand_div.get_text().strip() if brand_div else "Generic"
+                        title_text = title_div.get_text().strip()
+                        size_text = size_div.get_text().strip() if size_div else ""
                         
-                        # Clean price float (e.g. "£10.50" -> 10.5)
-                        price_val = float(re.sub(r'[^\d.]', '', price_text))
+                        full_title = f"{title_text} ({size_text})" if size_text else title_text
+                        price_text = price_div.get_text().strip()
                         
-                        # Extract stores (often listed as classes or attributes on Trolley)
-                        stores = ["Tesco", "Asda", "Sainsbury's", "Morrisons"]
-                        store_match = div.get('class', [])
-                        matched_store = "Supermarket"
-                        for s in stores:
-                            if s.lower() in str(div).lower():
-                                matched_store = s
-                                break
+                        # Clean price float (e.g. "£15.04 £2.68 per 100ml" -> 15.04)
+                        price_match = re.search(r'£\d+\.\d{2}', price_text)
+                        price_val = 0.0
+                        if price_match:
+                            price_val = float(price_match.group(0).replace('£', ''))
+                        else:
+                            # fallback: extract digits
+                            price_val_str = re.sub(r'[^\d.]', '', price_text.split()[0])
+                            if price_val_str:
+                                price_val = float(price_val_str)
+                        
+                        if price_val <= 0:
+                            continue
+
+                        # Extract stores if possible, fallback to standard "UK Supermarket"
+                        matched_store = "Sainsbury's"  # Default fallback
+                        if "asda" in str(div).lower():
+                            matched_store = "Asda"
+                        elif "tesco" in str(div).lower():
+                            matched_store = "Tesco"
+                        elif "morrisons" in str(div).lower():
+                            matched_store = "Morrisons"
+                        elif "sainsbury" in str(div).lower():
+                            matched_store = "Sainsbury's"
                         
                         # Dynamically estimate weight from title to run realistic FBA calculations
-                        weight_match = re.search(r'(\d+)\s*(g|ml|kg|l)', title_text, re.IGNORECASE)
                         weight_kg = 0.25  # default 250g
+                        weight_match = re.search(r'(\d+)\s*(g|ml|kg|l)', full_title, re.IGNORECASE)
                         if weight_match:
                             val = float(weight_match.group(1))
                             unit = weight_match.group(2).lower()
@@ -229,24 +195,24 @@ def scrape_trolley_deals(queries):
                             elif unit in ["kg", "l"]:
                                 weight_kg = val
                         
-                        # Simulate/estimate dynamic Amazon price (typically 1.6x to 2.2x supermarket clearance)
+                        # Simulate realistic Amazon retail price (typically 1.5x to 2.2x supermarket sale/clearance)
                         est_amazon_price = round(price_val * 1.85, 2)
                         
                         # Determine category
                         category = "Grocery"
-                        if any(x in title_text.lower() for x in ["cream", "lotion", "serum", "facial", "shampoo"]):
+                        if any(x in full_title.lower() for x in ["cream", "lotion", "serum", "facial", "shampoo", "cleanser"]):
                             category = "Beauty"
-                        elif any(x in title_text.lower() for x in ["capsules", "tablets", "vitamin", "omega"]):
+                        elif any(x in full_title.lower() for x in ["capsules", "tablets", "vitamin", "omega"]):
                             category = "Health & Personal Care"
-                        elif "milk" in title_text.lower() or "baby" in title_text.lower():
+                        elif "milk" in full_title.lower() or "baby" in full_title.lower():
                             category = "Baby Product"
                             
                         # Generate realistic BSR index (lower is better)
-                        simulated_bsr = hash(title_text) % 4500 + 100
+                        simulated_bsr = (abs(hash(full_title)) % 2500) + 100
                         
                         deals.append({
                             "brand": brand_text,
-                            "title": title_text,
+                            "title": full_title,
                             "supermarket": matched_store,
                             "supermarket_price": price_val,
                             "amazon_price": est_amazon_price,
@@ -280,7 +246,75 @@ def run_scanner():
     
     if args.mock:
         print(f"[{COLOR_GREEN}✓{COLOR_END}] Running in offline SHOWCASE mode utilizing standard pre-scanned deal sheets...")
-        deals_source = MOCK_DEALS
+        # Populate full mock details
+        deals_source = [
+            {
+                "brand": "CeraVe",
+                "title": "Moisturising Cream 454g",
+                "supermarket": "Sainsbury's",
+                "supermarket_price": 10.50,
+                "amazon_price": 19.99,
+                "weight_kg": 0.52,
+                "category": "Beauty",
+                "bsr": 450,
+                "is_gated": False
+            },
+            {
+                "brand": "Aptamil",
+                "title": "First Infant Milk Powder 800g",
+                "supermarket": "Asda",
+                "supermarket_price": 14.50,
+                "amazon_price": 24.99,
+                "weight_kg": 0.95,
+                "category": "Baby Product",
+                "bsr": 1200,
+                "is_gated": False
+            },
+            {
+                "brand": "L'Or",
+                "title": "Espresso Onyx Coffee Pods x40",
+                "supermarket": "Tesco",
+                "supermarket_price": 8.00,
+                "amazon_price": 17.50,
+                "weight_kg": 0.25,
+                "category": "Grocery",
+                "bsr": 850,
+                "is_gated": False
+            },
+            {
+                "brand": "Vitabiotics",
+                "title": "Pregnacare Max 84 Tablets",
+                "supermarket": "Morrisons",
+                "supermarket_price": 12.00,
+                "amazon_price": 22.99,
+                "weight_kg": 0.15,
+                "category": "Health & Personal Care",
+                "bsr": 620,
+                "is_gated": False
+            },
+            {
+                "brand": "Nivea",
+                "title": "Q10 Anti-Wrinkle Day Cream 50ml",
+                "supermarket": "Asda",
+                "supermarket_price": 5.00,
+                "amazon_price": 11.99,
+                "weight_kg": 0.12,
+                "category": "Beauty",
+                "bsr": 1500,
+                "is_gated": False
+            },
+            {
+                "brand": "Olay",
+                "title": "Regenerist 3 Point Anti-Ageing Cream 50ml",
+                "supermarket": "Tesco",
+                "supermarket_price": 15.00,
+                "amazon_price": 31.49,
+                "weight_kg": 0.14,
+                "category": "Beauty",
+                "bsr": 250,
+                "is_gated": False
+            }
+        ]
     else:
         search_terms = ["CeraVe", "L'Or Coffee", "Vitabiotics", "Nivea Cream"]
         if args.search:
@@ -294,7 +328,30 @@ def run_scanner():
             deals_source = scraped
         else:
             print(f"[{COLOR_YELLOW}⚠️{COLOR_END}] Live portals rate-limited/empty. Bypassing and auto-falling back to local pre-scanned arbitrage list...")
-            deals_source = MOCK_DEALS
+            deals_source = [
+                {
+                    "brand": "CeraVe",
+                    "title": "Moisturising Cream 454g",
+                    "supermarket": "Sainsbury's",
+                    "supermarket_price": 10.50,
+                    "amazon_price": 19.99,
+                    "weight_kg": 0.52,
+                    "category": "Beauty",
+                    "bsr": 450,
+                    "is_gated": False
+                },
+                {
+                    "brand": "Aptamil",
+                    "title": "First Infant Milk Powder 800g",
+                    "supermarket": "Asda",
+                    "supermarket_price": 14.50,
+                    "amazon_price": 24.99,
+                    "weight_kg": 0.95,
+                    "category": "Baby Product",
+                    "bsr": 1200,
+                    "is_gated": False
+                }
+            ]
 
     print("\n" + COLOR_BOLD + "==================== ARBITRAGE SCAN REPORT ====================" + COLOR_END)
     
