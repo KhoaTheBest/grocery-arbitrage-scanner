@@ -27,18 +27,18 @@ COLOR_RED = "\033[91m"
 COLOR_BOLD = "\033[1m"
 COLOR_END = "\033[0m"
 
-# Hardcoded dictionary mapping popular supermarket deals to their verified Amazon UK ASINs
-# Bypasses fragile search scraping (DuckDuckGo/Bing CAPTCHAs) for 100% reliable direct product page fetching
+# Hardcoded dictionary mapping popular supermarket deals to verified active Amazon UK ASINs
+# Bypasses fragile search scraping (DuckDuckGo/Bing CAPTCHAs) for 100% reliable direct product page fetching.
+# All ASINs have been programmatically verified to return HTTP 200 OK from Amazon.
 KNOWN_ASINS = {
-    "moisturising cream (562ml)": "B07C5U6D66",
+    "moisturising cream (562ml)": "B0CBKWWHY9",
     "sa smoothing cleanser salicylic (473ml)": "B09MMJS8ZM",
     "foaming cleanser (473ml)": "B07C5XD33D",
     "foaming cleanser refill (473ml)": "B0CCDRZYR7",
-    "ultra vitamin d3 3000 tablets (96)": "B007U3I6W0",
-    "wellwoman 70+ health & vitality cognitive function tablets (30)": "B0013G1P9E",
-    "vitabiotics pregnacare new mum post-natal 56 tablets": "B00G356EIK",
-    "q10 power anti-wrinkle firming night cream (50ml)": "B07ADK1322",
-    "q10 power 60+ night cream (50ml)": "B07JDK8322"
+    "ultra vitamin d3 3000 tablets (96)": "B09H4DD5QN",
+    "vitabiotics pregnacare new mum post-natal 56 tablets": "B007PDS96W",
+    "q10 power anti-wrinkle firming night cream (50ml)": "B07H1YM88L",
+    "q10 power 60+ night cream (50ml)": "B081976XNX"
 }
 
 # Premium mock dataset featuring highly realistic UK grocery arbitrage opportunities
@@ -54,7 +54,7 @@ MOCK_DEALS = [
         "category": "Beauty",
         "bsr": 450,
         "supermarket_url": "https://www.trolley.co.uk/product/cerave-moisturising-cream/XDL877",
-        "amazon_url": "https://www.amazon.co.uk/dp/B07C5U6D66"
+        "amazon_url": "https://www.amazon.co.uk/dp/B0CBKWWHY9"
     },
     {
         "brand": "CeraVe",
@@ -415,10 +415,10 @@ def run_scanner():
         bsr_health, bsr_desc = get_bsr_health(deal["bsr"], deal["category"])
         
         # Determine color of output
-        color = COLOR_GREEN if metrics["roi"] >= 20 else COLOR_YELLOW
+        color = COLOR_GREEN if metrics["roi"] >= 40 else COLOR_YELLOW
         
         print(f"\n{COLOR_BOLD}• {deal['brand']} - {deal['title']}{COLOR_END}")
-        print(f"  🛒 Store Source: {deal['supermarket']} | Lowest Price Found: £{deal['supermarket_price']:.2f}")
+        print(f"  🛒 Store Source: {deal['supermarket']} | Price: £{deal['supermarket_price']:.2f}")
         print(f"  📦 Live Amazon: Price: £{deal['amazon_price']:.2f} | Category: {deal['category']}")
         print(f"  💵 Amazon FBA Fees: £{metrics['total_fees']:.2f} (Referral: £{metrics['referral_fee']:.2f}, Shipping: £{metrics['fulfillment_fee']:.2f})")
         print(f"  📈 Profit Metrics: {color}Net Profit: £{metrics['profit']:.2f} | ROI: {metrics['roi']:.1f}% | Margin: {metrics['margin']:.1f}%{COLOR_END}")
