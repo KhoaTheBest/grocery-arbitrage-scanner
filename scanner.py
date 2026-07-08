@@ -31,7 +31,7 @@ COLOR_END = "\033[0m"
 # Bypasses fragile search scraping (DuckDuckGo/Bing CAPTCHAs) for 100% reliable direct product page fetching
 KNOWN_ASINS = {
     "moisturising cream (562ml)": "B07C5U6D66",
-    "sa smoothing cleanser salicylic (473ml)": "B08BLHN372",
+    "sa smoothing cleanser salicylic (473ml)": "B09MMJS8ZM",
     "foaming cleanser (473ml)": "B07C5XD33D",
     "foaming cleanser refill (473ml)": "B0CCDRZYR7",
     "ultra vitamin d3 3000 tablets (96)": "B007U3I6W0",
@@ -279,7 +279,7 @@ def scrape_trolley_deals(queries):
                         full_title = f"{title_text} ({size_text})" if size_text else title_text
                         price_text = price_div.get_text().strip()
                         
-                        # Clean price float (e.g. "£15.04" -> 15.04)
+                        # Clean price float (e.g. "£15.04")
                         price_match = re.search(r'£\d+\.\d{2}', price_text)
                         price_val = 0.0
                         if price_match:
